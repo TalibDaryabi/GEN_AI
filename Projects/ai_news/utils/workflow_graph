@@ -1,0 +1,9 @@
+// Workflow Graph
+digraph {
+	search [label=search]
+	summarize [label=summarize]
+	publish [label=publish]
+	__start__ -> search
+	search -> summarize
+	summarize -> publish
+}
