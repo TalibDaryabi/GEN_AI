@@ -6,6 +6,7 @@ import torch
 from tqdm.auto import tqdm
 import evaluate
 from torch.optim import SGD
+from accelerate import Accelerator
 
 from torch.utils.data import DataLoader
 
@@ -39,13 +40,16 @@ eval_dataloader = DataLoader(
     tokenized_datasets["validation"], batch_size=8, collate_fn=data_collator
 )
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+accelerator = Accelerator()
 config = AutoConfig.from_pretrained(checkpoint, num_labels=2)
 model = AutoModelForSequenceClassification.from_pretrained(checkpoint, config=config)
-model.to(device)
-
 # optimizer = SGD(model.parameters(), lr=5e-3, momentum=0.9)
 optimizer = AdamW(model.parameters(), lr=5e-5)
+
+
+train_dataloader, eval_dataloader, model, optimizer = accelerator.prepare(
+    [train_dataloader, eval_dataloader, model, optimizer]
+)
 
 num_epochs = 3
 num_training_steps = num_epochs * len(train_dataloader)
@@ -60,11 +64,9 @@ progress_bar = tqdm(range(num_training_steps))
 model.train()
 for epoch in range(num_epochs):
     for batch in train_dataloader:
-        batch = {k: v.to(device) for k, v in batch.items()}
         outputs = model(**batch)
         loss = outputs.loss
-        loss.backward()
-
+        accelerator.backward(loss)
         optimizer.step()
         lr_scheduler.step()
         optimizer.zero_grad()
@@ -72,14 +74,43 @@ for epoch in range(num_epochs):
 
 
 metric = evaluate.load("glue", "mrpc")
+# Initialize empty lists to collect predictions and references
+all_predictions = []
+all_labels = []
+# Move model to evaluation mode
 model.eval()
-for batch in eval_dataloader:
-    batch = {k: v.to(device) for k, v in batch.items()}
-    with torch.no_grad():
-        outputs = model(**batch)
+with accelerator.autocast():
+    for batch in eval_dataloader:
+        with torch.no_grad():
+            outputs = model(**batch)
+        logits = outputs.logits
+        predictions = torch.argmax(logits, dim=-1)
 
-    logits = outputs.logits
-    predictions = torch.argmax(logits, dim=-1)
-    metric.add_batch(predictions=predictions, references=batch["labels"])
+        predictions, references = accelerator.gather((predictions, batch["labels"]))
 
-metric.compute()
+        all_predictions.append(predictions)
+        all_labels.append(references)
+
+# Concatenate all collected predictions and labels
+all_predictions = torch.cat(all_predictions)
+all_labels = torch.cat(all_labels)
+
+# Compute the final metric
+final_metrics = metric.compute(predictions=all_predictions.cpu().numpy(), references=all_labels.cpu().numpy())
+print(final_metrics)
+
+############################ Alternative way to compute the metric without Accelerator ############################
+
+# model.eval()
+# for batch in eval_dataloader:
+#     batch = {k: v.to(device) for k, v in batch.items()}
+#     with torch.no_grad():
+#         outputs = model(**batch)
+#
+#     logits = outputs.logits
+#     predictions = torch.argmax(logits, dim=-1)
+#     metric.add_batch(predictions=predictions, references=batch["labels"])
+#
+# metric.compute()
+
+###############################################################################################
