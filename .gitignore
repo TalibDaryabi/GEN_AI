@@ -16,6 +16,11 @@ env/
 # Environment variables
 .env
 langgraph_notebook_examples/studio/.env
+langchain-academy/
+Coursera/Generative AI Engineering and Fine-Tuning Transformers/Module_1/fine_tuned_model/
+Coursera/Generative AI Engineering and Fine-Tuning Transformers/Module_1/test-trainer/
+Coursera/Generative AI Engineering and Fine-Tuning Transformers/Module_1/0.3.9/
+Coursera/Generative AI Engineering and Fine-Tuning Transformers/Module_1/0.70.17/
 
 # Logs/
 *.log

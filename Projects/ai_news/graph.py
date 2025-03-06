@@ -28,7 +28,8 @@ def search_node(state: Dict[str, Any]) -> Dict[str, Any]:
     searcher = NewsSearcher()
     # introduce interrupt to get the query
     # question = input("What do you want to search for? ")
-    question = "What is the latest news on AI?"
+    question = "What is the latest news on Germany Election?"
+
     state['articles'] = searcher.search(inquiry=question , tavily=tavily_search )
     return state
 
