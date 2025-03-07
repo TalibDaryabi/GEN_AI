@@ -1,0 +1,2 @@
+Requirement already satisfied: multiprocess in c:\users\talib\miniconda3\envs\transformer\lib\site-packages (0.70.16)
+Requirement already satisfied: dill>=0.3.8 in c:\users\talib\miniconda3\envs\transformer\lib\site-packages (from multiprocess) (0.3.8)
